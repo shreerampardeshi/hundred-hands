@@ -1,0 +1,60 @@
+:root{
+  --bg:#0b0f14; --card:#161d26; --line:#2a3542; --fg:#f2f6fa; --dim:#9fb0c0;
+  --green:#22c55e; --red:#ef4444; --yellow:#eab308; --blue:#3b82f6; --gray:#6b7280;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{max-width:100%;overflow-x:hidden}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--fg);font:17px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-bottom:40px}
+.banner{background:var(--red);color:#fff;font-weight:700;padding:12px 14px;text-align:center;font-size:15px;overflow-wrap:break-word}
+.banner a{color:#fff;text-decoration:underline}
+.wrap{width:100%;max-width:720px;margin:0 auto;padding:12px}
+h1{font-size:30px;letter-spacing:1px;line-height:1.1}
+.sub{color:var(--dim);margin:6px 0 18px}
+.fld{display:block;margin:14px 0;font-size:17px}
+.fld>span,.fld legend{display:block;color:var(--dim);font-size:14px;margin-bottom:6px}
+input,textarea,select{width:100%;max-width:100%;min-height:48px;background:var(--card);border:1px solid var(--line);border-radius:10px;color:var(--fg);font-size:17px;padding:12px}
+fieldset.fld{border:1px solid var(--line);border-radius:10px;padding:10px;max-width:100%}
+.chk{display:flex;align-items:center;gap:10px;min-height:48px}
+.chk input{width:26px;height:26px;min-height:0;flex:0 0 auto}
+.btn{display:block;width:100%;min-height:52px;border:0;border-radius:12px;font-size:19px;font-weight:800;margin:10px 0;color:#fff;cursor:pointer;overflow-wrap:break-word}
+.btn.red{background:var(--red)} .btn.gray{background:var(--gray)} .btn.green{background:var(--green);color:#052105}
+.btn.big{min-height:64px;font-size:23px}
+.preview{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;margin:6px 0;font-size:15px;color:var(--dim);max-width:100%;overflow-wrap:break-word;word-break:break-word}
+.preview b{color:var(--fg)} .err{color:var(--red)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0;max-width:100%;overflow-wrap:break-word;word-break:break-word}
+.grid{display:grid;grid-template-columns:1fr;gap:10px}
+@media(min-width:640px){.grid{grid-template-columns:1fr 1fr}}
+.timer{font-size:36px;font-weight:900;font-variant-numeric:tabular-nums}
+.counters{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0}
+.counter{background:var(--card);border:1px solid var(--line);border-radius:10px;text-align:center;padding:8px 2px;min-width:0}
+.counter .n{font-size:22px;font-weight:900}
+.counter .l{font-size:11px;color:var(--dim)}
+.best{background:var(--green);color:#052105;border-radius:14px;padding:14px;margin:12px 0;max-width:100%;overflow-wrap:break-word;word-break:break-word}
+.best h2{font-size:19px}
+.best .adr{font-size:15px;margin:4px 0 10px}
+.tag{display:inline-block;padding:3px 10px;border-radius:999px;font-weight:800;font-size:13px;min-height:0;margin:2px 4px 0 0}
+.yes{background:var(--green);color:#052105}.no{background:var(--red);color:#fff}.unsure{background:var(--yellow);color:#231d00}.queued{background:var(--gray);color:#fff}.calling{background:var(--blue);color:#fff}.done{background:#1f8a4c;color:#fff}
+.phone{color:var(--blue);text-decoration:none;font-weight:800;overflow-wrap:anywhere}
+.script{background:#1c2633;border-left:4px solid var(--blue);padding:10px;border-radius:8px;margin:10px 0;font-size:15px;overflow-wrap:break-word}
+.qr{background:#fff;padding:8px;border-radius:12px;display:inline-block;max-width:100%;width:auto}
+.qr canvas,.qr img,.qr svg,.qr table{display:block;width:140px!important;height:140px!important;max-width:100%;max-height:140px}
+@media(max-width:480px){.qr canvas,.qr img,.qr svg,.qr table{width:120px!important;height:120px!important}}
+.rowline{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap}
+.rowline>*{max-width:100%}
+@media(max-width:480px){
+  .rowline{flex-direction:column;align-items:stretch;gap:10px}
+  .rowline>*{width:100% !important;flex:0 0 auto !important}
+  .rowline .btn{width:100% !important;margin:6px 0 !important}
+  .rowline .qr{display:block;margin:0 auto}
+}
+.muted{color:var(--dim);font-size:14px;overflow-wrap:break-word}
+.btnrow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0}
+.btnrow .btn{margin:0}
+@media(max-width:480px){
+  .btnrow{grid-template-columns:1fr}
+  h1{font-size:26px}
+  .timer{font-size:30px}
+  .wrap{padding:10px}
+  .best h2{font-size:17px}
+}

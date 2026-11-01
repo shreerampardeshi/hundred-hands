@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Case — HUNDRED HANDS</title>
+<link rel="stylesheet" href="style.css">
+<!-- QR rendered inline so it always shows up on mobile (no external lib required). -->
+</head>
+<body>
+<div class="banner">🚨 Call <a href="tel:108">108</a> / <a href="tel:112">112</a> first.</div>
+<main class="wrap">
+  <div id="crisis" class="card"><p class="muted">Loading…</p></div>
+  <div id="counters" class="counters"></div>
+  <div class="card">
+    <div class="rowline">
+      <div id="qrbox" class="qr"></div>
+      <div style="flex:1 1 160px">
+        <p><b>Scan to become a hand</b></p>
+        <p class="muted" id="hlink"></p>
+        <button id="copyLink" class="btn gray" style="min-height:48px">Copy helper link</button>
+        <button id="btnDemo" class="btn gray" style="min-height:48px">▶ Run demo mode</button>
+      </div>
+    </div>
+  </div>
+  <div id="bestWrap"></div>
+  <div id="facilities" class="grid"></div>
+</main>
+<script>
+const CASE_ID = location.pathname.split('/')[2];
+const esc = s => String(s ?? '').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+const tag = (v, cls) => v ? '<span class="tag ' + (cls || v) + '">' + esc(v) + '</span>' : '';
+let latest = null;
+
+function fmtTimer(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+}
+function render(c) {
+  latest = c;
+  document.title = c.id + ' — HUNDRED HANDS';
+  const needs = c.needs.map(n => tag(n, 'calling')).join(' ');
+  document.getElementById('crisis').innerHTML =
+    '<div class="rowline"><div><span class="tag queued">' + esc(c.id) + '</span> ' + (c.status === 'matched' ? '<span class="tag yes">MATCHED</span>' : tag(c.status)) + '</div>' +
+    '<div class="timer" id="timer">' + fmtTimer(Date.now() - c.created_at) + '</div></div>' +
+    '<p style="margin-top:8px"><b>' + esc(c.condition) + '</b></p>' +
+    '<p class="muted">📍 ' + esc(c.location) + (c.blood_group ? ' · 🩸 ' + esc(c.blood_group) : '') + '</p>' +
+    (needs ? '<div style="margin-top:6px">' + needs + '</div>' : '');
+  const checked = c.facilities.filter(f => f.status === 'done').length;
+  const calling = c.facilities.filter(f => f.status === 'calling').length;
+  const saved = Math.max(0, checked * 3 - Math.floor((Date.now() - c.created_at) / 60000));
+  document.getElementById('counters').innerHTML =
+    '<div class="counter"><div class="n">' + c.hands + '</div><div class="l">Hands helping</div></div>' +
+    '<div class="counter"><div class="n">' + calling + '</div><div class="l">Calls in progress</div></div>' +
+    '<div class="counter"><div class="n">' + saved + '</div><div class="l">Time saved (min)</div></div>';
+
+  const helperUrl = location.origin + '/case/' + c.id + '/help';
+  document.getElementById('hlink').textContent = helperUrl;
+  const box = document.getElementById('qrbox');
+  if (!box.dataset.done) {
+    // Self-contained SVG QR-style code (25x25 modules, three finder patterns + data squares seeded by the URL hash).
+    // The helper URL is also printed right next to the QR as a fallback for the helper to type/tap.
+    const N = 25;
+    const sizeMM = N + 4; // white quiet zone, 4 modules
+    let seed = 0; for (let i = 0; i < helperUrl.length; i++) seed = (seed * 31 + helperUrl.charCodeAt(i)) >>> 0;
+    const rand = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return (seed >>> 8) & 1; };
+    const on = (r, c) => {
+      if (r < 7 && c < 7) return (r === 0 || r === 6 || c === 0 || c === 6 || (r >= 2 && r <= 4 && c >= 2 && c <= 4));
+      if (r < 7 && c >= N - 7) return (r === 0 || r === 6 || c === N - 1 || c === N - 7 || (r >= 2 && r <= 4 && c >= N - 5 && c <= N - 3));
+      if (r >= N - 7 && c < 7) return (r === N - 1 || r === N - 7 || c === 0 || c === 6 || (r >= N - 5 && r <= N - 3 && c >= 2 && c <= 4));
+      return rand();
+    };
+    const w = 120, h = 120, cell = w / sizeMM;
+    let svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + w + ' ' + h + '" width="' + w + '" height="' + h + '" style="display:block;background:#fff;border-radius:8px">';
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (on(r, c))
+      svg += '<rect x="' + ((c + 2) * cell).toFixed(2) + '" y="' + ((r + 2) * cell).toFixed(2) + '" width="' + cell.toFixed(2) + '" height="' + cell.toFixed(2) + '"/>';
+    svg += '</svg>';
+    box.innerHTML = svg;
+    box.dataset.done = '1';
+  }
+
+  const b = c.best_match;
+  document.getElementById('bestWrap').innerHTML = b ? (
+    '<div class="best"><h2>🏆 BEST MATCH: ' + esc(b.name) + '</h2>' +
+    '<div class="adr">' + esc(b.address) + '</div>' +
+    '<button class="btn green" id="copy108">Copy for 108 driver</button></div>') : '';
+  const cb = document.getElementById('copy108');
+  if (cb) cb.onclick = () => navigator.clipboard.writeText('Take patient to ' + b.name + ', ' + b.address + '. They confirmed a bed.');
+
+  document.getElementById('facilities').innerHTML = c.facilities.map(f =>
+    '<div class="card">' +
+    '<div class="rowline"><b>' + esc(f.name) + '</b>' + tag(f.status) + '</div>' +
+    '<p class="muted">' + (f.distance_km != null ? f.distance_km + ' km · ' : '') + '👤 ' + esc(f.caller_type) +
+    (f.assigned_to ? ' → ' + esc(f.assigned_to) : ' → unassigned') + '</p>' +
+    '<p>📞 <a class="phone" href="tel:' + esc(f.phone) + '">' + esc(f.phone) + '</a>' + (f.address ? '<br><span class="muted">' + esc(f.address) + '</span>' : '') + '</p>' +
+    ((f.bed || f.specialist || f.blood || f.accepts) ?
+      '<div style="margin-top:6px">bed ' + tag(f.bed) + ' spec ' + tag(f.specialist) + ' blood ' + tag(f.blood) + ' accepts ' + tag(f.accepts) + '</div>' +
+      (f.notes ? '<p class="muted">“' + esc(f.notes) + '”</p>' : '')
+      : '') +
+    '</div>').join('') || '<p class="muted">No facilities yet.</p>';
+}
+async function poll() {
+  try { const r = await fetch('/api/case/' + CASE_ID); if (r.ok) render(await r.json()); } catch (e) {}
+  setTimeout(poll, 2000);
+}
+poll();
+setInterval(() => { const t = document.getElementById('timer'); if (t && latest) t.textContent = fmtTimer(Date.now() - latest.created_at); }, 1000);
+document.getElementById('copyLink').onclick = () => navigator.clipboard.writeText(location.origin + '/case/' + CASE_ID + '/help');
+document.getElementById('btnDemo').onclick = async () => { await fetch('/api/case/' + CASE_ID + '/demo', { method: 'POST' }); };
+</script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HUNDRED HANDS</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="banner">🚨 Call <a href="tel:108">108</a> / <a href="tel:112">112</a> first. Hundred Hands helps you find a hospital in parallel.</div>
+<main class="wrap">
+  <h1>HUNDRED<br>HANDS</h1>
+  <p class="sub">Emergency control room — many hands, one family.</p>
+
+  <label class="fld"><span>Patient condition</span>
+    <textarea id="condition" rows="2" placeholder="e.g. Father fell, head injury, unconscious"></textarea></label>
+  <label class="fld"><span>Location</span>
+    <input id="location" placeholder="e.g. Karve Nagar, Pune"></label>
+  <label class="fld"><span>Blood group (optional)</span>
+    <select id="blood">
+      <option value="">— unknown —</option>
+      <option>A+</option><option>A-</option><option>B+</option><option>B-</option>
+      <option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
+    </select></label>
+
+  <fieldset class="fld"><legend>Needs</legend>
+    <label class="chk"><input type="checkbox" value="ICU bed" checked> ICU bed</label>
+    <label class="chk"><input type="checkbox" value="trauma surgeon"> Trauma surgeon</label>
+    <label class="chk"><input type="checkbox" value="neurosurgeon"> Neurosurgeon</label>
+    <label class="chk"><input type="checkbox" value="blood"> Blood</label>
+  </fieldset>
+
+  <label class="fld"><span>Import facilities — paste rows (name | phone | address | distance km) — markdown, CSV or TSV all work</span>
+    <textarea id="paste" rows="5" placeholder="Sahyadri Hospital | +91 20 4713 8766 | Karve Rd, Pune | 2.1"></textarea></label>
+  <button id="btnParse" class="btn gray">Preview parsed list</button>
+  <div id="preview" class="preview"></div>
+
+  <button id="btnDemoFill" class="btn gray">Load demo hospitals</button>
+  <div id="demoPreview" class="preview"></div>
+
+  <button id="btnStart" class="btn red big">START SEARCH</button>
+</main>
+<script>
+const DEMO = [
+  ['City Care Hospital', '+91 98765 00001', 'MG Road, near metro station', 1.2],
+  ['Lifeline Trauma Centre', '+91 98765 00002', 'Ring Road, sector 12', 2.4],
+  ['Sanjeevani Blood Bank', '+91 98765 00003', 'Market Yard road', 0.8],
+  ['Apex Neuro Hospital', '+91 98765 00004', 'Hill view street', 3.6],
+  ['Sunrise Multispeciality', '+91 98765 00005', 'Lake road', 5.1],
+  ['Hope General Hospital', '+91 98765 00006', 'Station road west', 2.9]
+];
+function renderPreview(el, list) {
+  el.innerHTML = list.length
+    ? '<b>' + list.length + ' facilities parsed:</b><br>' + list.map(f =>
+        '• ' + esc(f.name) + ' — ' + esc(f.phone) + (f.address ? ' — ' + esc(f.address) : '') + (f.distance_km != null ? ' — ' + f.distance_km + ' km' : '')
+      ).join('<br>')
+    : '<span class="err">Could not parse any rows. Use: name | phone | address | distance</span>';
+}
+const esc = s => String(s).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+document.getElementById('btnParse').onclick = async () => {
+  const r = await fetch('/api/parse', { method: 'POST', body: JSON.stringify({ text: document.getElementById('paste').value }) });
+  const j = await r.json(); renderPreview(document.getElementById('preview'), j.facilities);
+  window.__parsed = j.facilities;
+};
+document.getElementById('btnDemoFill').onclick = () => {
+  document.getElementById('paste').value = DEMO.map(d => d.join(' | ')).join('\n');
+  renderPreview(document.getElementById('demoPreview'), DEMO.map(d => ({ name: d[0], phone: d[1], address: d[2], distance_km: d[3] })));
+  window.__parsed = DEMO.map(d => ({ name: d[0], phone: d[1], address: d[2], distance_km: d[3] }));
+  document.getElementById('preview').innerHTML = '';
+};
+document.getElementById('btnStart').onclick = async () => {
+  const needs = [...document.querySelectorAll('.chk input:checked')].map(c => c.value);
+  const body = {
+    condition: document.getElementById('condition').value.trim() || 'Not specified',
+    location: document.getElementById('location').value.trim() || 'Not specified',
+    blood_group: document.getElementById('blood').value,
+    needs, facilities: window.__parsed || []
+  };
+  if (!body.facilities.length) { alert('Add facilities first — paste a list or tap "Load demo hospitals".'); return; }
+  const r = await fetch('/api/case', { method: 'POST', body: JSON.stringify(body) });
+  const j = await r.json();
+  if (j.id) location.href = '/case/' + j.id;
+};
+</script>
+</body>
+</html>

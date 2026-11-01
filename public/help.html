@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Become a hand — HUNDRED HANDS</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="banner">🚨 Call <a href="tel:108">108</a> / <a href="tel:112">112</a> first.</div>
+<main class="wrap" id="app">
+  <h1 style="font-size:26px">BECOME A HAND</h1>
+  <label class="fld"><span>Your name</span><input id="name" placeholder="e.g. Asha"></label>
+  <button id="ready" class="btn red big">I'm ready to help</button>
+  <div id="assign"></div>
+</main>
+<script>
+const CASE_ID = location.pathname.split('/')[2];
+const esc = s => String(s ?? '').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+const tag = v => v ? '<span class="tag ' + v + '">' + v.toUpperCase() + '</span>' : '';
+let helper = sessionStorage.getItem('hh_name') || '';
+let needSpec = [];
+
+document.getElementById('ready').onclick = join;
+if (helper) { document.getElementById('name').value = helper; join(); }
+
+async function join() {
+  helper = document.getElementById('name').value.trim();
+  if (!helper) return;
+  sessionStorage.setItem('hh_name', helper);
+  const r = await fetch('/api/case/' + CASE_ID + '/join', { method: 'POST', body: JSON.stringify({ name: helper }) });
+  const j = await r.json();
+  if (j.error && r.status === 409) {
+    // every facility was grabbed by another hand — backend guarantees no double assignment
+    document.getElementById('assign').innerHTML =
+      '<div class="card"><p><b>Sorry, ' + esc(helper) + ' — all hospitals were just taken.</b></p>' +
+      (j.taken_by ? '<p class="muted">Last facility went to ' + esc(j.taken_by) + '.</p>' : '') +
+      '<p class="muted">Tap below — if a hand drops out, the next free hospital becomes yours.</p>' +
+      '<button class="btn gray" onclick="join()">Take another hospital</button></div>';
+    return;
+  }
+  if (j.error) { alert(j.error); return; }
+  if (!j.assigned.length) {
+    document.getElementById('assign').innerHTML =
+      '<div class="card"><p><b>Thank you, ' + esc(helper) + '.</b></p><p class="muted">No unassigned hospitals right now — every facility already has a hand. Tap "Take another hospital" if others drop out.</p>' +
+      '<button class="btn gray" onclick="join()">Take another hospital</button></div>';
+    return;
+  }
+  renderAssignment(j.assigned);
+}
+function scriptFor(f) {
+  const spec = needSpec.length ? 'a ' + needSpec.join(' or a ') : 'the right specialist';
+  return 'Hello, I\'m calling for a family with a medical emergency. 1) Do you have an ICU or trauma bed available right now? 2) Is ' + spec + ' on duty? 3) Can you accept the patient in the next 30 minutes?';
+}
+async function renderAssignment(facs) {
+  const c = await (await fetch('/api/case/' + CASE_ID)).json();
+  needSpec = (c.needs || []).filter(n => /surgeon|specialist/i.test(n)).map(n => n.toLowerCase());
+  document.getElementById('assign').innerHTML = facs.map(f =>
+    '<div class="card" data-fid="' + f.id + '">' +
+    '<h2 style="font-size:22px">' + esc(f.name) + '</h2>' +
+    '<p class="muted">' + (f.distance_km != null ? f.distance_km + ' km · ' : '') + esc(f.address || '') + '</p>' +
+    '<a class="btn green big" style="text-decoration:none;text-align:center" href="tel:' + esc(f.phone) + '">📞 Tap to call ' + esc(f.phone) + '</a>' +
+    '<div class="script">' + scriptFor(f) + '</div>' +
+    '<p class="muted">After the call, mark each answer:</p>' +
+    ['bed', 'specialist', 'blood'].map(q =>
+      '<p class="muted" style="margin-top:6px">' + q + '</p>' +
+      '<div class="btnrow">' + ['yes', 'no', 'unsure'].map(v =>
+        '<button class="btn ' + (v === 'yes' ? 'green' : v === 'no' ? 'red' : 'gray') + '" style="min-height:48px;font-size:16px" onclick="pick(this,\'' + q + '\',\'' + v + '\')">' + v.toUpperCase() + '</button>'
+      ).join('') + '</div>').join('') +
+    '<p class="muted">Can they accept the patient in 30 min?</p>' +
+    '<div class="btnrow">' + ['yes', 'no', 'unsure'].map(v =>
+      '<button class="btn ' + (v === 'yes' ? 'green' : v === 'no' ? 'red' : 'gray') + '" style="min-height:48px;font-size:16px" onclick="pick(this,\'accepts\',\'' + v + '\')">' + v.toUpperCase() + '</button>'
+    ).join('') + '</div>' +
+    '<button class="btn gray" style="min-height:48px" onclick="pick(this,\'no_answer\',\'no_answer\')">NO ANSWER (after 30s)</button>' +
+    '<input id="notes' + f.id + '" placeholder="Notes (optional)" style="margin-top:6px">' +
+    '<button class="btn red big" onclick="submit(' + f.id + ')">SUBMIT</button>' +
+    '</div>').join('');
+  window.__picks = {};
+}
+function pick(btn, q, v) {
+  window.__picks[q] = v;
+  const card = btn.closest('.card');
+  card.querySelectorAll('[data-q="' + q + '"]')?.forEach(b => b.classList.remove('sel'));
+  btn.style.outline = '3px solid #fff';
+}
+async function submit(fid) {
+  const p = window.__picks || {};
+  const body = p.no_answer ? { bed: 'unsure', specialist: 'unsure', blood: 'unsure', accepts: 'no', notes: 'No answer after 30 seconds' }
+    : { bed: p.bed || 'unsure', specialist: p.specialist || 'unsure', blood: p.blood || 'unsure', accepts: p.accepts || 'no', notes: document.getElementById('notes' + fid).value };
+  await fetch('/api/facility/' + fid + '/report', { method: 'POST', body: JSON.stringify(body) });
+  await fetch('/api/facility/' + fid + '/call', { method: 'POST' });
+  join();
+}
+
+/* Live sync: poll the shared backend every 2 seconds (no overlapping requests —
+   each poll is scheduled only after the previous one finishes). If this helper's
+   facilities changed on the server (new assignment, results reported from another
+   phone, demo mode), re-render from server state. Nothing is read from or written
+   to browser storage — the server database is the only source of truth. */
+let lastSync = '';
+let busy = false;
+async function poll() {
+  if (!busy && helper) {
+    busy = true;
+    try {
+      const c = await (await fetch('/api/case/' + CASE_ID)).json();
+      const mine = (c.facilities || []).filter(f => f.assigned_to === helper);
+      const state = JSON.stringify(mine.map(f => [f.id, f.status, f.bed, f.specialist, f.blood, f.accepts, f.notes]));
+      if (state !== lastSync && mine.length && lastSync !== '') {
+        const open = document.querySelector('input[id^=notes]');
+        const typing = open && open.value && !document.querySelector('.donebadge');
+        if (!typing) { lastSync = state; renderAssignment(mine); }
+      } else if (lastSync === '') { lastSync = state; }
+    } catch (e) {}
+    busy = false;
+  }
+  setTimeout(poll, 2000);
+}
+poll();
+</script>
+</body>
+</html>
